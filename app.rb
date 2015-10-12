@@ -4,6 +4,10 @@ require 'mysql2-cs-bind'
 require 'tilt/erubis'
 require 'erubis'
 
+if ENV["RACK_ENV"] != "deployment"
+  require 'mysql2/client/general_log'
+end
+
 module Isucon5
   class AuthenticationError < StandardError; end
   class PermissionDenied < StandardError; end
@@ -364,5 +368,25 @@ SQL
     db.query("DELETE FROM footprints WHERE id > 500000")
     db.query("DELETE FROM entries WHERE id > 500000")
     db.query("DELETE FROM comments WHERE id > 1500000")
+  end
+
+  def green(str)
+    "\e[32m#{str}\e[m"
+  end
+
+  if ENV["RACK_ENV"] != "deployment"
+    after do
+      sorted_log = db.general_log.sort_by(&:time)
+      sorted_log.each do |log|
+        puts sprintf("%s;\t%.6fs", log.sql, log.time)
+      end
+      puts green(sprintf(
+        "path:%s\tsql:%d\t%fs",
+        request.path,
+        db.general_log.length,
+        db.general_log.inject(0){|r, log| r += log.time}
+      ))
+      db.general_log.clear
+    end
   end
 end

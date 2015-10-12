@@ -171,6 +171,14 @@ SQL
 
     profile = db.xquery('SELECT * FROM profiles WHERE user_id = ?', current_user[:id]).first
 
+    friends_query = 'SELECT * FROM relations WHERE one = ? OR another = ? ORDER BY created_at DESC'
+    friends_map = {}
+    db.xquery(friends_query, current_user[:id], current_user[:id]).each do |rel|
+      key = (rel[:one] == current_user[:id] ? :another : :one)
+      friends_map[rel[key]] ||= rel[:created_at]
+    end
+    friends = friends_map.map{|user_id, created_at| [user_id, created_at]}
+
     entries_query = 'SELECT * FROM entries WHERE user_id = ? ORDER BY created_at LIMIT 5'
     entries = db.xquery(entries_query, current_user[:id])
       .map{ |entry| entry[:is_private] = (entry[:private] == 1); entry[:title], entry[:content] = entry[:body].split(/\n/, 2); entry }
@@ -187,7 +195,7 @@ SQL
 
     entries_of_friends = []
     db.query('SELECT * FROM entries ORDER BY created_at DESC LIMIT 1000').each do |entry|
-      next unless is_friend?(entry[:user_id])
+      next unless friends_map.key?(entry[:user_id])
       entry[:title] = entry[:body].split(/\n/).first
       entries_of_friends << entry
       break if entries_of_friends.size >= 10
@@ -195,21 +203,13 @@ SQL
 
     comments_of_friends = []
     db.query('SELECT * FROM comments ORDER BY created_at DESC LIMIT 1000').each do |comment|
-      next unless is_friend?(comment[:user_id])
+      next unless friends_map.key?(comment[:user_id])
       entry = db.xquery('SELECT * FROM entries WHERE id = ?', comment[:entry_id]).first
       entry[:is_private] = (entry[:private] == 1)
       next if entry[:is_private] && !permitted?(entry[:user_id])
       comments_of_friends << comment
       break if comments_of_friends.size >= 10
     end
-
-    friends_query = 'SELECT * FROM relations WHERE one = ? OR another = ? ORDER BY created_at DESC'
-    friends_map = {}
-    db.xquery(friends_query, current_user[:id], current_user[:id]).each do |rel|
-      key = (rel[:one] == current_user[:id] ? :another : :one)
-      friends_map[rel[key]] ||= rel[:created_at]
-    end
-    friends = friends_map.map{|user_id, created_at| [user_id, created_at]}
 
     query = <<SQL
 SELECT user_id, owner_id, DATE(created_at) AS date, MAX(created_at) AS updated

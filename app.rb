@@ -5,6 +5,7 @@ require 'tilt/erubis'
 require 'erubis'
 
 if ENV["RACK_ENV"] != "deployment"
+  require 'diffy'
   require 'mysql2/client/general_log'
 end
 
@@ -376,6 +377,20 @@ SQL
 
   if ENV["RACK_ENV"] != "deployment"
     after do
+      if Array === body
+        expect_html = nil
+        case request.path
+        when "/"
+          expect_html = File.read("./test/index.html").strip
+        else
+        end
+
+        if expect_html && body.first && expect_html != body.first.strip
+          puts Diffy::Diff.new(expect_html, body.first.strip).to_s
+          raise "HTML was breaking!!!!!"
+        end
+      end
+
       sorted_log = db.general_log.sort_by(&:time)
       sorted_log.each do |log|
         puts sprintf("%s;\t%.6fs", log.sql, log.time)

@@ -1,6 +1,7 @@
 GEM
   remote: https://rubygems.org/
   specs:
+    diffy (3.0.7)
     erubis (2.7.0)
     kgio (2.10.0)
     mysql2 (0.4.0)
@@ -26,6 +27,7 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
+  diffy
   erubis
   mysql2
   mysql2-client-general_log

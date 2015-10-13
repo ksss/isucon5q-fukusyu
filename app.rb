@@ -201,11 +201,16 @@ SQL
     end
 
     comments_of_friends = []
-    db.query('SELECT * FROM comments ORDER BY created_at DESC LIMIT 1000').each do |comment|
+    comment_ids = []
+    db.query('SELECT id, entry_id, user_id FROM comments ORDER BY created_at DESC LIMIT 1000').each do |comment|
       next unless friends_map.key?(comment[:user_id])
       entry = db.xquery('SELECT * FROM entries WHERE id = ?', comment[:entry_id]).first
       entry[:is_private] = (entry[:private] == 1)
       next if entry[:is_private] && !permitted?(entry[:user_id])
+      comment_ids << comment[:id]
+      break if comment_ids.length >= 10
+    end
+    db.xquery('SELECT * FROM comments WHERE id IN (?) ORDER BY created_at DESC LIMIT 10', comment_ids).each do |comment|
       comments_of_friends << comment
       break if comments_of_friends.size >= 10
     end
